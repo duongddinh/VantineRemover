@@ -1,0 +1,308 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "authorship_tag": "ABX9TyPw89WwIBP74TFp4RaQA3ir",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/frychicken/VantineRemover/blob/main/app_remove_watermarked.ipynb\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "24Qr6Q8unKeD"
+      },
+      "outputs": [],
+      "source": [
+        "!git clone https://github.com/DmitryUlyanov/deep-image-prior"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!mv deep-image-prior/* ./"
+      ],
+      "metadata": {
+        "id": "TJ0mw-A-nRT6"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from google.colab import files\n",
+        "import os\n",
+        "\n",
+        "os.makedirs('sample_data', exist_ok=True)\n",
+        "\n",
+        "print(\"Please upload exactly one file.\")\n",
+        "\n",
+        "uploaded = files.upload()\n",
+        "\n",
+        "if len(uploaded) == 1:\n",
+        "  filename = next(iter(uploaded))\n",
+        "  os.rename(filename, 'data/inpainting/convertimg.png')\n",
+        "  print(f\"The file has been renamed and moved to: sample_data/convertimg.png\")\n",
+        "else:\n",
+        "  print(\"Error: Please upload exactly one file. Try again.\")\n"
+      ],
+      "metadata": {
+        "id": "koJPmePOeWrl"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from google.colab import files\n",
+        "import os\n",
+        "\n",
+        "os.makedirs('sample_data', exist_ok=True)\n",
+        "\n",
+        "print(\"Please upload exactly one file.\")\n",
+        "\n",
+        "uploaded = files.upload()\n",
+        "\n",
+        "if len(uploaded) == 1:\n",
+        "  filename = next(iter(uploaded))\n",
+        "  os.rename(filename, 'data/inpainting/convertimg.png')\n",
+        "  print(f\"The file has been renamed and moved to: sample_data/convertimg.png\")\n",
+        "else:\n",
+        "  print(\"Error: Please upload exactly one file. Try again.\")\n"
+      ],
+      "metadata": {
+        "id": "gO_vP6HnfPoi"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from __future__ import print_function\n",
+        "import matplotlib.pyplot as plt\n",
+        "%matplotlib inline\n",
+        "\n",
+        "import os\n",
+        "# os.environ['CUDA_VISIBLE_DEVICES'] = '1'\n",
+        "\n",
+        "import numpy as np\n",
+        "from models.resnet import ResNet\n",
+        "from models.unet import UNet\n",
+        "from models.skip import skip\n",
+        "import torch\n",
+        "import torch.optim\n",
+        "\n",
+        "from utils.inpainting_utils import *\n",
+        "\n",
+        "torch.backends.cudnn.enabled = True\n",
+        "torch.backends.cudnn.benchmark =True\n",
+        "dtype = torch.cuda.FloatTensor\n",
+        "\n",
+        "PLOT = True\n",
+        "imsize = -1\n",
+        "dim_div_by = 64"
+      ],
+      "metadata": {
+        "id": "InW-OzHlnTYN"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "img_path  = 'data/inpainting/convertimg.png'\n",
+        "mask_path = 'data/inpainting/mask.png'\n",
+        "\n",
+        "\n",
+        "NET_TYPE = 'skip_depth6'"
+      ],
+      "metadata": {
+        "id": "iZww9HYBnXEE"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "img_pil, img_np = get_image(img_path, imsize)\n",
+        "img_mask_pil, img_mask_np = get_image(mask_path, imsize)"
+      ],
+      "metadata": {
+        "id": "uwuXlNnXnaA7"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "img_pil, img_np = get_image(img_path, imsize)\n",
+        "img_mask_pil, img_mask_np = get_image(mask_path, imsize)"
+      ],
+      "metadata": {
+        "id": "epLsyiYJnafK"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "img_mask_var = np_to_torch(img_mask_np).type(dtype)\n",
+        "\n",
+        "plot_image_grid([img_np, img_mask_np, img_mask_np*img_np], 3,11);"
+      ],
+      "metadata": {
+        "id": "6uI2DwZWncP8"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "pad = 'reflection' # 'zero'\n",
+        "OPT_OVER = 'net'\n",
+        "OPTIMIZER = 'adam'"
+      ],
+      "metadata": {
+        "id": "HXLl0a29ndr9"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import torch\n",
+        "INPUT = 'noise'\n",
+        "input_depth = 32\n",
+        "LR = 0.01\n",
+        "num_iter = 5001\n",
+        "param_noise = False\n",
+        "show_every = 50\n",
+        "figsize = 5\n",
+        "reg_noise_std = 0.03\n",
+        "\n",
+        "net = skip(input_depth, img_np.shape[0],\n",
+        "            num_channels_down = [128] * 5,\n",
+        "            num_channels_up   = [128] * 5,\n",
+        "            num_channels_skip = [128] * 5,\n",
+        "            upsample_mode='nearest', filter_skip_size=1, filter_size_up=3, filter_size_down=3,\n",
+        "            need_sigmoid=True, need_bias=True, pad=pad, act_fun='LeakyReLU').type(dtype)\n",
+        "\n",
+        "net = net.type(dtype)\n",
+        "net_input = get_noise(input_depth, INPUT, img_np.shape[1:]).type(dtype)"
+      ],
+      "metadata": {
+        "id": "iMjmJnJAnfTu"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Compute number of parameters\n",
+        "s  = sum(np.prod(list(p.size())) for p in net.parameters())\n",
+        "print ('Number of params: %d' % s)\n",
+        "\n",
+        "# Loss\n",
+        "mse = torch.nn.MSELoss().type(dtype)\n",
+        "\n",
+        "img_var = np_to_torch(img_np).type(dtype)\n",
+        "mask_var = np_to_torch(img_mask_np).type(dtype)\n"
+      ],
+      "metadata": {
+        "id": "jJeK83rUnnCc"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "i = 0\n",
+        "def closure():\n",
+        "\n",
+        "    global i\n",
+        "\n",
+        "    if param_noise:\n",
+        "        for n in [x for x in net.parameters() if len(x.size()) == 4]:\n",
+        "            n = n + n.detach().clone().normal_() * n.std() / 50\n",
+        "\n",
+        "    net_input = net_input_saved\n",
+        "    if reg_noise_std > 0:\n",
+        "        net_input = net_input_saved + (noise.normal_() * reg_noise_std)\n",
+        "\n",
+        "\n",
+        "    out = net(net_input)\n",
+        "    # Assuming 'out' is your output tensor\n",
+        "    out = out[:, :, :550, :475]  # Crop the tensor to 550x475\n",
+        "\n",
+        "    total_loss = mse(out * mask_var, img_var * mask_var)\n",
+        "    total_loss.backward()\n",
+        "\n",
+        "    print ('Iteration %05d    Loss %f' % (i, total_loss.item()), '\\r', end='')\n",
+        "    if  PLOT and i % show_every == 0:\n",
+        "        out_np = torch_to_np(out)\n",
+        "        plot_image_grid([np.clip(out_np, 0, 1)], factor=figsize, nrow=1)\n",
+        "\n",
+        "    i += 1\n",
+        "\n",
+        "    return total_loss\n",
+        "\n",
+        "net_input_saved = net_input.detach().clone()\n",
+        "noise = net_input.detach().clone()\n",
+        "\n",
+        "p = get_params(OPT_OVER, net, net_input)\n",
+        "optimize(OPTIMIZER, p, closure, LR, num_iter)"
+      ],
+      "metadata": {
+        "id": "S-ewIHjznoiW"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "out_np = torch_to_np(net(net_input))\n",
+        "plot_image_grid([out_np], factor=5);"
+      ],
+      "metadata": {
+        "id": "zukLKjsWnqgC"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
